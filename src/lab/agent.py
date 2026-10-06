@@ -3,13 +3,20 @@
 Pseudo-code: guides/pseudocode/01_agent.md
 Kiểm tra:    pytest tests/test_02_agent.py
 """
+import os
+import sys
+import tempfile
 from pathlib import Path
 
-# TODO 1: import các thành phần cần dùng, ví dụ:
-#   from deepagents import create_deep_agent
-#   from deepagents.backends import LocalShellBackend
-#   from .model import make_model
-#   from .subagents import get_subagents
+from deepagents import create_deep_agent
+from deepagents.backends import LocalShellBackend
+from httpx import RemoteProtocolError
+from langchain.agents.middleware import ModelRetryMiddleware
+from langchain_core.rate_limiters import InMemoryRateLimiter
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from .model import make_model
+from .subagents import get_subagents
 
 # ---- CÓ SẴN, KHÔNG SỬA: system prompt dùng chung cho mọi sinh viên (để đường cơ sở so sánh được) ----
 PATHS_NOTE = (
@@ -47,7 +54,42 @@ def make_backend(sandbox: Path):
       - Tác tử chạy được lệnh shell và gọi được `python` (cần đặt PATH).
       - KHÔNG chuyển biến môi trường của bạn vào shell của tác tử (khóa API không được lộ).
     """
-    raise NotImplementedError("TODO 2: cài đặt make_backend (xem guides/pseudocode/01_agent.md)")
+    paths = [str(Path(sys.executable).parent)]
+    env = {"HOME": str(sandbox), "PYTHONDONTWRITEBYTECODE": "1"}
+    if os.name == "nt":
+        git_tools = Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git" / "usr" / "bin"
+        system_root = Path(os.environ.get("SystemRoot", "C:/Windows"))
+        paths.extend([str(git_tools), str(system_root / "System32"), str(system_root)])
+        env["SystemRoot"] = str(system_root)
+    else:
+        paths.extend(["/usr/local/bin", "/usr/bin", "/bin"])
+    env["PATH"] = os.pathsep.join(paths)
+    backend_type = LocalShellBackend
+    if os.name == "nt":
+        bash = git_tools / "bash.exe"
+        if not bash.is_file():
+            raise RuntimeError("Git for Windows Bash is required for the lab shell.")
+
+        class BashLocalShellBackend(LocalShellBackend):
+            """Run POSIX commands with Git Bash, including quoted multiline Python."""
+
+            def execute(self, command: str, *, timeout: int | None = None):
+                if not command or not isinstance(command, str):
+                    return super().execute(command, timeout=timeout)
+                with tempfile.TemporaryDirectory(prefix="lab-shell-") as shell_directory:
+                    script = Path(shell_directory) / "command.sh"
+                    script.write_text(
+                        'python3() { python "$@"; }\n' + command,
+                        encoding="utf-8", newline="\n",
+                    )
+                    return super().execute(
+                        f'"{bash}" --noprofile --norc "{script.as_posix()}"', timeout=timeout,
+                    )
+
+        backend_type = BashLocalShellBackend
+    return backend_type(
+        root_dir=sandbox, virtual_mode=True, inherit_env=False, env=env, timeout=120,
+    )
 
 
 def build_agent(sandbox: Path, mode: str = "single", use_skills: bool = False, model=None):
@@ -64,4 +106,32 @@ def build_agent(sandbox: Path, mode: str = "single", use_skills: bool = False, m
     mode không hợp lệ -> ném ValueError.
     Trả về: đồ thị (graph) đã biên dịch, gọi bằng `.invoke({"messages": [...]})`.
     """
-    raise NotImplementedError("TODO 3: cài đặt build_agent (xem guides/pseudocode/01_agent.md)")
+    if mode not in {"single", "subagents"}:
+        raise ValueError(f"unknown agent mode: {mode}")
+
+    kwargs = {}
+    prompt = BASE_PROMPT
+    if mode == "subagents":
+        kwargs["subagents"] = [
+            {**sub, "system_prompt": sub["system_prompt"] + " " + PATHS_NOTE}
+            for sub in get_subagents()
+        ]
+        prompt += SUBAGENTS_NOTE
+    if use_skills:
+        kwargs["skills"] = ["/skills/"]
+        prompt += SKILLS_NOTE
+
+    selected_model = model if model is not None else make_model()
+    if model is None and isinstance(selected_model, ChatGoogleGenerativeAI):
+        selected_model.timeout = 60
+        selected_model.max_retries = 1
+        selected_model.rate_limiter = InMemoryRateLimiter(
+            requests_per_second=0.2, check_every_n_seconds=0.1, max_bucket_size=1,
+        )
+        kwargs["middleware"] = [ModelRetryMiddleware(
+            max_retries=2, retry_on=(RemoteProtocolError,),
+            initial_delay=2, on_failure="error",
+        )]
+    return create_deep_agent(
+        model=selected_model, system_prompt=prompt, backend=make_backend(sandbox), **kwargs,
+    )

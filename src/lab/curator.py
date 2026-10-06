@@ -4,10 +4,11 @@ Pseudo-code: guides/pseudocode/04_curator.md
 Kiểm tra:    pytest tests/test_04_curator.py
 Chạy thật:   python -m lab.curator
 """
+import json
 import re
 from pathlib import Path
 
-from .tasks import eval_markers   # có sẵn: định danh của tác vụ đánh giá, tính lúc chạy
+from .tasks import ROOT, eval_markers   # có sẵn: định danh của tác vụ đánh giá, tính lúc chạy
 
 # ---- CÓ SẴN, KHÔNG SỬA: kiểm tra và tách khối skill (phần dễ sai và liên quan bảo mật) ----------------
 SAFE_NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -68,7 +69,66 @@ def curate_skills(results_dir="results", source_condition="baseline", out_dir=No
     model mặc định: make_model() (lab.model).
     Trả về: danh sách đường dẫn SKILL.md đã ghi.
     """
-    raise NotImplementedError("TODO: cài đặt curate_skills (xem guides/pseudocode/04_curator.md)")
+    if out_dir is None:
+        out_dir = ROOT / "skills" / "auto"
+    runs = []
+    for run_path in sorted((Path(results_dir) / source_condition).glob("*/run.json")):
+        record = json.loads(run_path.read_text(encoding="utf-8"))
+        if record.get("role") != "learn":
+            continue
+        failed = [(c.get("name", ""), c.get("detail", ""))
+                  for c in record.get("checks", []) if not c.get("passed", False)]
+        if not failed:
+            continue
+        trace_path = run_path.with_name("trace.md")
+        trace = trace_path.read_text(encoding="utf-8")[-6000:] if trace_path.exists() else ""
+        runs.append({"task": record.get("task", run_path.parent.name), "failed": failed, "trace": trace})
+
+    if not runs:
+        print("warning: không có check thất bại ở tác vụ học")
+        return []
+
+    sections = []
+    for run in runs:
+        failures = "\n".join(f"- {name}: {detail}" for name, detail in run["failed"])
+        sections.append(f"TASK: {run['task']}\nFAILED CHECKS:\n{failures}\nTRACE (last 6000 chars):\n{run['trace']}")
+    prompt = f"""You write concise procedural skills for a programming and data-analysis agent.
+The following feedback comes only from learning tasks. Infer general process improvements, not task answers.
+Write at most {max_skills} skills for NEW tasks of similar kinds.
+
+Rules:
+- Skills must be general: do not mention task IDs, input data filenames, answers, or specific answer values.
+- Each skill has YAML frontmatter with lowercase `name` and one-sentence `description` saying when to use it.
+- After the frontmatter, provide imperative checklist instructions, at most 40 lines.
+- Output exactly this format:
+=== SKILL: <name> ===
+---
+name: <name>
+description: <when to use it>
+---
+<instructions>
+=== END ===
+
+{chr(10).join(sections)}
+"""
+    if model is None:
+        from .model import make_model
+        model = make_model()
+    response = model.invoke(prompt)
+    content = getattr(response, "content", response)
+    if not isinstance(content, str):
+        content = "\n".join(block.get("text", "") for block in content
+                               if isinstance(block, dict) and block.get("type") == "text")
+
+    written = []
+    for name, text in parse_skill_blocks(content):
+        if len(written) >= max_skills or validate_skill(text, expected_name=name):
+            continue
+        skill_path = Path(out_dir) / name / "SKILL.md"
+        skill_path.parent.mkdir(parents=True, exist_ok=True)
+        skill_path.write_text(text + "\n", encoding="utf-8")
+        written.append(skill_path)
+    return written
 
 
 if __name__ == "__main__":

@@ -92,7 +92,7 @@ pytest tests/test_01_provided.py
 Điền `.env` theo một trong hai cách (`model.py` ưu tiên cách 1 nếu cả ba biến của cách 1 đều có):
 
 1. **Azure OpenAI hoặc cổng tương thích OpenAI**: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_KEY`, `AZURE_OPENAI_DEPLOYMENT_MODEL`.
-2. **Nhà cung cấp khác** (ví dụ DeepSeek): `LAB_MODEL=deepseek:deepseek-chat` và `DEEPSEEK_API_KEY`. Tên mô hình thay đổi theo thời gian, đối chiếu tài liệu của nhà cung cấp.
+2. **Gemini Developer API**: `LAB_MODEL=google_genai:gemini-3.5-flash-lite` và `GOOGLE_API_KEY` (khóa Gemini API). Gói `langchain-google-genai` được cài bằng `pip install -e .`.
 
 Kết quả mong đợi của `pytest tests/test_01_provided.py`: `12 passed`. Không commit tệp `.env`.
 
