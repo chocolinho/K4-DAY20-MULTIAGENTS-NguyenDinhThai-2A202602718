@@ -118,32 +118,47 @@ Kết quả `skills-auto --tasks learn`: `code-learn` 8/10, `data-learn` 5/8, `l
 
 > Dán nội dung `report/table.md` và kết quả `python scripts/check_breakdown.py`. Nêu các lần chạy có `error` hoặc `skills_modified = true` (nếu có) và cách xử lý.
 
-```text
-(dán bảng ở đây)
-```
+Phần 4 đã tạo commit `hypotheses` (`b9318d8`) và tag `freeze` (`15f9687`). Sau khi thay API key Gemini, sáu lần chạy `skills-auto` sau freeze đã hoàn tất.
+
+| Tác vụ | baseline | subagents | skills-auto |
+|---|---:|---:|---:|
+| `code-learn` | 7/10 | 7/10 | 8/10* |
+| `data-learn` | 5/8 | 4/8 | 5/8 |
+| `logs-learn` | 6/9 | 6/9 | 6/9 |
+| `code-eval` | 7/11 | 7/11 | 8/11* |
+| `data-eval` | 5/9 | 5/9 | 5/9 |
+| `logs-eval` | 6/10 | 6/10 | 6/10 |
+| **Mean learning** | 0.66 | 0.62 | 0.70 |
+| **Mean evaluation** | 0.60 | 0.60 | 0.63 |
+| **Mean tokens/run** | 136,103 | 269,517 | 165,220 |
+
+`skills-auto` đọc skill ở 5/6 lần chạy và không sửa skill. `code-learn` (208.895 token) và `code-eval` (205.425 token) đạt điểm tương ứng 8/10 và 8/11 nhưng kết thúc bằng `GraphRecursionError` ở giới hạn 60; đây là lỗi dừng của graph sau khi đã ghi kết quả, không phải quota. Bốn lần chạy còn lại không có lỗi. Không có lần chạy nào sau khi đổi key bị 429. Kết quả trước freeze được lưu tại `results/skills-auto-dev/` và không dùng thay cho sáu bản ghi chính thức.
+
+Chi tiết máy sinh nằm tại [table.md](table.md); kiểm tra `verify_freeze.py` báo `checked 6 runs of skill conditions: OK`. Kết quả breakdown xác nhận cả ba điều kiện đạt 18/18 check kỹ thuật ở eval; khác biệt nằm ở check `rule_`.
 
 ## 8. Phân tích
 
 > Trả lời từng câu bằng số liệu từ mục 7 và bằng chứng từ vết. Kết quả âm hoặc không có khác biệt vẫn hợp lệ nếu được phân tích tốt.
 
-1. So với `baseline`, điều kiện nào cải thiện điểm tác vụ **học**? Điều kiện nào cải thiện điểm tác vụ **đánh giá**? Có điều kiện nào cải thiện tác vụ học nhưng không cải thiện tác vụ đánh giá? Nếu có, đó là dấu hiệu gì?
-2. Tách điểm thành check kỹ thuật và check quy ước (`rule_`). Skill do curator sinh giúp nhóm check nào? Check quy ước **mới** của tác vụ đánh giá có được skill giúp không, và vì sao?
-3. Dựa vào vết và `skills_read`, giải thích một check mà skill giúp đạt và một check mà skill không giúp (skill chưa được đọc, đọc nhưng không làm theo, skill thiếu hoặc sai).
-4. Chi phí: so sánh số token trung bình giữa các điều kiện. Điều kiện nào có hiệu quả tốt nhất theo điểm trên mỗi token? Đa tác tử có đáng chi phí trong thí nghiệm này không?
-5. Có dấu hiệu rò rỉ dữ liệu hoặc quá khớp nào trong skill sinh ra không? Nhóm đã phòng tránh như thế nào?
-6. Nhiễu: so sánh điểm tác vụ học của cùng bộ skill ở Phần 3.4 (đã sao lưu) và sau đóng băng. Chênh lệch bao nhiêu? Nó cho biết điều gì về độ tin cậy của các chênh lệch trong bảng ở mục 7?
+1. So với `baseline`, `skills-auto` tăng học từ 18/27 lên 19/27 check (mean 0,66 lên 0,70) và tăng eval từ 18/30 lên 19/30 (0,60 lên 0,63). `subagents` giảm học xuống 17/27 và không đổi eval. Skill giúp học và chuyển giao một phần sang eval; mức tăng nhỏ và code có lỗi recursion nên không nên xem là thắng tuyệt đối.
+2. Cả ba điều kiện đạt 18/18 check kỹ thuật ở eval. Chênh lệch đều nằm ở `rule_`: skills-auto đạt 1/12 eval, baseline/subagents 0/12. Skill tổng quát về naming/formatting giúp một quy ước, nhưng quy ước mới của eval phần lớn không xuất hiện trong dữ liệu học nên không thể bảo đảm bao phủ.
+3. `code-eval` đạt `rule_regression_tests` sau khi đọc ba skill (`skills_read=3`), nhưng vẫn trượt `rule_type_hints` và `rule_changelog`; đọc skill không đồng nghĩa làm đủ checklist. `logs-learn` không đọc skill (`skills_read=0`) và giữ 6/9, cho thấy việc nạp skill phụ thuộc mô tả tác vụ.
+4. Token trung bình: baseline 136.103, subagents 269.517, skills-auto 165.220. Baseline có điểm/token tốt nhất; skills-auto mua thêm khoảng 3 điểm phần trăm mean eval với khoảng 21% token, còn subagents tăng gần gấp đôi token mà không tăng eval. Trong mẫu này đa tác tử chưa đáng chi phí.
+5. Không có dấu hiệu rò rỉ dữ liệu: curator chỉ đọc ba run `role=learn`, chặn marker eval và kiểm tra skill bằng validator trước khi ghi. Các skill không chứa tên task hay dữ liệu cụ thể; nguy cơ còn lại là quá khớp quy ước học.
+6. So với bản sao trước freeze (code 8/10, data 5/8, logs 6/9), sau freeze là code 8/10, data 5/8, logs 6/9: chênh lệch 0 ở cả ba. Điều này hỗ trợ độ ổn định của chênh lệch chính, nhưng mỗi cấu hình chỉ chạy một lần và code vẫn có lỗi recursion.
 
 ## 9. Hạn chế và tính hợp lệ
 
 > Nêu ít nhất 3 hạn chế và ảnh hưởng của từng hạn chế đến kết luận (ví dụ: chỉ 3 tác vụ mỗi vai trò, mỗi cấu hình chạy một lần, nhiễu của mô hình, tác vụ do giảng viên thiết kế sẵn quy ước, chỉ một mô hình).
 
-1.
-2.
-3.
+1. Mỗi task/điều kiện chỉ chạy một lần, nên nhiễu sampling và trạng thái dịch vụ có thể lớn hơn chênh lệch 0,03–0,04 điểm.
+2. Chỉ dùng một model Gemini và ba task mỗi vai trò; kết luận chưa khái quát sang model, quota hoặc bộ task khác.
+3. `code-learn` và `code-eval` dừng ở recursion limit sau khi ghi điểm; điểm một phần hữu ích để quan sát nhưng không tương đương một lần chạy sạch.
+4. Các quy ước Acme được ẩn trong grader, nên skill có thể cải thiện checklist đã thấy mà bỏ sót quy ước mới.
 
 ## 10. Kết luận
 
-> Tối đa 5 câu. Chỉ khẳng định điều số liệu hỗ trợ. Nêu một đề xuất cải tiến tiếp theo.
+`skills-auto` đạt mean 0,70 ở học và 0,63 ở eval, cao hơn baseline 0,66 và 0,60 trong mẫu này. `subagents` tăng chi phí lên 269.517 token/lần nhưng không tăng điểm eval. Lợi ích của skill chủ yếu nằm ở check quy ước, còn 18/18 check kỹ thuật đạt ở cả ba điều kiện eval. Hai lần chạy code gặp `GraphRecursionError`, nên cần tăng giới hạn hoặc bổ sung điều kiện dừng trước khi kết luận chắc chắn. Bước tiếp theo là lặp mỗi task nhiều lần với cùng freeze và ghi khoảng tin cậy.
 
 ## Phụ lục
 

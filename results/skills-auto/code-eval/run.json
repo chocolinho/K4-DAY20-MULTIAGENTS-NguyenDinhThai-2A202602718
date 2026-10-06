@@ -1,25 +1,25 @@
 {
-  "task": "code-learn",
+  "task": "code-eval",
   "condition": "skills-auto",
-  "role": "learn",
+  "role": "eval",
   "error": "GraphRecursionError: Recursion limit of 60 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT",
-  "timestamp": "2026-10-06T05:46:31.092777+00:00",
+  "timestamp": "2026-10-06T05:44:00.037397+00:00",
   "recursion_limit": 60,
   "skills_sha256": "088d3591de46cd74a06a9b8dfdf9c951e684e2d6510a522e3779ddee6a7373b5",
-  "seconds": 148.0,
+  "seconds": 149.0,
   "tokens": {
-    "input": 206778,
-    "output": 2117,
-    "total": 208895
+    "input": 203326,
+    "output": 2099,
+    "total": 205425
   },
   "tool_calls": 29,
   "subagent_calls": 0,
   "skills_read": 3,
   "skills_modified": false,
   "final_message": "",
-  "score": 0.8,
+  "score": 0.7272727272727273,
   "passed": 8,
-  "total": 10,
+  "total": 11,
   "checks": [
     {
       "name": "visible_suite_passes",
@@ -32,7 +32,7 @@
       "detail": ""
     },
     {
-      "name": "parse_price_all_formats",
+      "name": "parse_duration_all_formats",
       "passed": true,
       "detail": ""
     },
@@ -42,24 +42,24 @@
       "detail": ""
     },
     {
-      "name": "discount_rounds_half_up",
+      "name": "billable_blocks_round_up",
       "passed": true,
       "detail": ""
     },
     {
-      "name": "low_stock_follows_docstring",
+      "name": "add_slot_no_shared_state",
       "passed": true,
       "detail": ""
     },
     {
-      "name": "csv_quoting_follows_docstring",
+      "name": "negative_minutes_rejected",
       "passed": true,
       "detail": ""
     },
     {
       "name": "rule_type_hints",
       "passed": false,
-      "detail": "RULE: every public function (name not starting with '_') in the package has type annotations on all parameters and on the return value."
+      "detail": ""
     },
     {
       "name": "rule_regression_tests",
@@ -69,7 +69,12 @@
     {
       "name": "rule_changelog",
       "passed": false,
-      "detail": "RULE: record each fix in CHANGELOG.md under the heading '## Unreleased' as a bullet '- fix(<function name>): <short description>' (at least 3 bullets)."
+      "detail": ""
+    },
+    {
+      "name": "rule_version_bump",
+      "passed": false,
+      "detail": ""
     }
   ]
 }
