@@ -162,6 +162,21 @@ Chi tiết máy sinh nằm tại [table.md](table.md); kiểm tra `verify_freeze
 
 ## Phụ lục
 
+### Xác nhận hoàn thành Phần 5
+
+- Mục 1 ghi cấu hình, model và môi trường chạy.
+- Mục 2 ghi H1–H3; các giả thuyết đã nằm trong commit `hypotheses` trước tag `freeze`.
+- Mục 3–6 ghi harness, taxonomy lỗi, subagents và chất lượng skill curator.
+- Mục 7 có bảng sáu tác vụ từ `report/table.md` và kết quả `check_breakdown.py`.
+- Mục 8 trả lời đủ sáu câu hỏi phân tích bằng số liệu; mục 9 nêu bốn hạn chế; mục 10 kết luận trong năm câu.
+- `verify_freeze.py` xác nhận sáu run `skills-auto` dùng đúng skill đã đóng băng, không sửa skill.
+
+### Quyết định về Phần 6 (tùy chọn)
+
+Chưa thực hiện Phần 6 trong bản nộp này. Với mục tiêu chính là hoàn thành thí nghiệm self-evolving và ngân sách API có giới hạn, chạy thêm 6e sẽ tốn ít nhất 18 lần chạy model (ba điều kiện × ba task × hai lần lặp thêm), trong khi hai run code hiện đã chạm `GraphRecursionError`. Vì vậy chi phí và nhiễu bổ sung hiện lớn hơn giá trị diễn giải chắc chắn.
+
+Nếu cần lấy điểm mở rộng, lựa chọn phù hợp nhất là **6b (vòng tiến hóa thứ hai)**: sao lưu `skills/auto/` và kết quả hiện tại, chạy curator trên đúng các run `skills-auto` học, ghi skill mới vào thư mục riêng, rồi đo bằng một condition mới mà không sửa freeze. Cần báo cáo riêng số skill tăng thêm, `skills_read`, token và điểm; không được trộn kết quả này vào bảng Phần 4.
+
 ### Cài đặt harness (Phần 1)
 
 | Bước | Nội dung đã cài đặt | Kiểm tra |
